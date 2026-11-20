@@ -42,6 +42,19 @@ npm run preview
 
 Vite gebruikt een relatieve base (`./`), zodat de build werkt onder een repositorypad. De hashroute blijft lokaal in de browser, waardoor gedeelde links en refreshes op elke dia werken.
 
+## Onderzoeksnotities
+
+Naast de presentatie staan hier de notities bij ons onderzoek. Elk onderwerp heeft een eigen map met een `README.md`.
+
+| Onderwerp | Kernvraag |
+|---|---|
+| [Layout, Paint & Virtual DOM](layout-paint-virtual-dom/) | Hoe worden boxes pixels, en waarom vermijden frameworks het aanraken van de DOM? |
+
+In die map staan ook twee losse HTML-pagina's (open ze rechtstreeks in de browser, ze zitten niet in de Vite-build):
+
+- [`slow-motion/`](layout-paint-virtual-dom/slow-motion/): de rendering pipeline stap per stap, met wat er na elke stap in de browser bestaat.
+- [`slides/`](layout-paint-virtual-dom/slides/): een eerste reveal.js-versie van het pipeline-deel.
+
 ## Bronnen
 
 - [Rendering performance en de pixel pipeline](https://web.dev/articles/rendering-performance)
