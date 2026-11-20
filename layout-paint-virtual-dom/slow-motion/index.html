@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser in slow motion</title>
+<style>
+  :root {
+    --bg: #f8fafc; --panel: #ffffff; --line: #e2e8f0; --line-strong: #cbd5e1;
+    --text: #0f172a; --muted: #64748b; --faint: #94a3b8;
+    --accent: #0f766e; --accent-soft: #ccfbf1; --accent-ink: #134e4a;
+    --warn: #b91c1c; --warn-soft: #fee2e2;
+    --new: #a16207; --new-soft: #fef9c3;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 20px 16px 32px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 22px; margin: 0; }
+  header span { color: var(--muted); font-size: 14px; }
+
+  /* Tijdlijn */
+  .timeline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .pill { padding: 6px 14px; border-radius: 999px; border: 2px solid var(--line-strong); color: var(--muted); font-weight: 600; font-size: 14px; background: #fff; transition: all .25s; }
+  .pill.done { border-color: var(--accent); color: var(--accent); }
+  .pill.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pill.skip { border-style: dashed; color: var(--faint); background: #f8fafc; }
+  .pill.todo-re { border-color: var(--warn); color: var(--warn); }
+  .pill.done-re { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+  .pill.cur-re { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .arrow { color: var(--faint); }
+  .frame-tag { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr); gap: 14px; margin-top: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+  /* Broncode */
+  .src { font: 13px/1.5 var(--mono); white-space: pre; overflow-x: auto; }
+  .src div { padding: 0 6px; border-radius: 4px; color: var(--faint); transition: all .25s; }
+  .src div.on { color: var(--text); background: var(--new-soft); }
+  .src div.base { color: var(--text); }
+
+  /* Geheugen */
+  .mem { list-style: none; margin: 0; padding: 0; }
+  .mem li { display: flex; align-items: center; gap: 10px; padding: 3px 8px; border-radius: 8px; transition: all .25s; }
+  .mem .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line-strong); flex: none; }
+  .mem .name { font-weight: 600; font-size: 14px; }
+  .mem .what { font-size: 12px; color: var(--muted); margin-left: auto; text-align: right; }
+  .mem li.absent { opacity: .38; }
+  .mem li.present .dot { background: var(--accent); border-color: var(--accent); }
+  .mem li.new { background: var(--new-soft); }
+  .mem li.new .dot { background: var(--new); border-color: var(--new); }
+  .mem li.stale .name { text-decoration: line-through; color: var(--warn); }
+  .mem li.stale .dot { background: #fff; border-color: var(--warn); }
+  .mem li.stale .what::after { content: " · ongeldig"; color: var(--warn); }
+
+  /* Middenvlak */
+  .stage { min-height: 290px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .stage-inner { animation: fade .35s ease; width: 100%; display: flex; justify-content: center; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+  .appear { opacity: 0; animation: pop .35s ease forwards; }
+  .empty { color: var(--muted); text-align: center; }
+
+  .tree { font: 14px/1.9 var(--mono); }
+  .tree .node { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tree .tag { color: var(--accent); font-weight: 700; }
+  .tree .txt { color: var(--muted); }
+  .chip { font: 12px/1.4 var(--mono); padding: 2px 7px; border-radius: 6px; background: #f1f5f9; border: 1px solid var(--line); color: var(--text); }
+  .chg { background: var(--warn-soft) !important; border-color: var(--warn) !important; color: var(--warn) !important; }
+  .cssom { margin-top: 16px; font: 13px/1.7 var(--mono); color: var(--muted); border-top: 1px dashed var(--line-strong); padding-top: 10px; }
+
+  .boxes { position: relative; width: 300px; height: 108px; margin: 40px 0 70px; }
+  .bx { position: absolute; border: 2px dashed var(--accent); border-radius: 4px; }
+  .bx.inner { border-color: var(--warn); }
+  .bx span { position: absolute; font: 600 11px var(--mono); white-space: nowrap; padding: 1px 6px; border-radius: 4px; }
+  .bx.outer > span { top: -24px; left: -2px; background: var(--accent); color: #fff; }
+  .bx.inner > span { left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: var(--warn); color: #fff; }
+
+  .dl { font: 14px/2 var(--mono); }
+  .dl div { display: flex; gap: 10px; align-items: center; }
+  .dl .n { color: var(--faint); width: 18px; }
+  .dl .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line-strong); }
+  .note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+
+  .scene { perspective: 900px; width: 380px; height: 260px; position: relative; }
+  .stack { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(40deg) rotateZ(-14deg) translateY(10px); transition: transform 1.1s cubic-bezier(.5, 0, .2, 1); }
+  .stack.flat { transform: none; }
+  .ly { position: absolute; left: 40px; top: 76px; width: 300px; height: 108px; transition: transform 1.1s cubic-bezier(.5, 0, .2, 1), box-shadow 1.1s; }
+  .ly1 { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 8px; }
+  .ly2 { transform: translateZ(120px); outline: 2px solid var(--warn); outline-offset: 6px; border-radius: 6px; }
+  .stack.flat .ly1, .stack.flat .ly2 { outline-color: transparent; }
+  .stack.flat .ly2 { transform: translateZ(0); }
+  .raster { display: flex; gap: 48px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+  .rlabel { font: 600 12px var(--mono); margin-bottom: 8px; }
+  .tilebox { position: relative; display: inline-block; }
+  .tiles { position: absolute; inset: -1px; display: grid; }
+  .tiles i { background: #cbd5e1; border: 1px dashed rgba(100, 116, 139, .45); animation: reveal .35s ease forwards; }
+  @keyframes reveal { to { background: transparent; } }
+  .lytag { position: absolute; font: 600 11px var(--mono); padding: 1px 6px; border-radius: 4px; color: #fff; white-space: nowrap; transition: opacity .6s; }
+  .stack.flat .lytag { opacity: 0; }
+
+  /* Het kaartje zelf */
+  .card { box-sizing: border-box; width: 300px; height: 108px; padding: 16px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.18); text-align: left; position: relative; }
+  .card h3 { font: 600 24px/32px system-ui, sans-serif; margin: 0 0 8px; color: #222; }
+  .btn { position: absolute; left: 16px; top: 56px; height: 36px; border-radius: 6px; color: #fff; font: 500 16px/36px system-ui, sans-serif; text-align: center; }
+
+  /* Scherm */
+  .screen { height: 140px; border-radius: 8px; border: 1px solid var(--line-strong); background: #e2e8f0; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .screen .scale { transform: scale(.82); }
+  .screen .blank { color: var(--muted); font-size: 14px; text-align: center; padding: 0 16px; }
+  .screen .old { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 600; background: var(--new-soft); color: var(--new); padding: 2px 8px; border-radius: 999px; }
+
+  /* Uitleg en bediening */
+  .explain { margin-top: 14px; font-size: 18px; line-height: 1.5; min-height: 3em; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  button.ctl { font: 600 15px system-ui, sans-serif; padding: 9px 16px; border-radius: 8px; border: 2px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer; }
+  button.ctl:hover:not(:disabled) { background: var(--accent-soft); }
+  button.ctl.primary { background: var(--accent); color: #fff; }
+  button.ctl.primary:hover:not(:disabled) { background: var(--accent-ink); }
+  button.ctl.chgbtn { border-color: var(--warn); color: var(--warn); }
+  button.ctl.chgbtn:hover:not(:disabled) { background: var(--warn-soft); }
+  button.ctl:disabled { opacity: .35; cursor: not-allowed; }
+  .spacer { flex: 1; }
+  .hint { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Browser in slow motion</h1>
+    <span>Van HTML en CSS naar pixels, één stap per keer. Pijltjestoetsen ← → werken ook.</span>
+  </header>
+
+  <div class="timeline" id="timeline"></div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="panel">
+        <p class="label">Input: wat de browser ontving</p>
+        <div class="src" id="src"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Wat bestaat er nu in de browser?</p>
+        <ul class="mem" id="mem"></ul>
+      </div>
+    </div>
+    <div class="col">
+      <div class="panel">
+        <p class="label" id="stageLabel">Wat deze stap oplevert</p>
+        <div class="stage" id="stage"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Op het scherm</p>
+        <div class="screen" id="screen"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel explain" id="explain"></div>
+
+  <div class="controls">
+    <button class="ctl" id="prev">◀ Vorige</button>
+    <button class="ctl primary" id="next">Volgende ▶</button>
+    <span class="spacer"></span>
+    <span class="hint" id="chgHint">Wijzig de knop:</span>
+    <button class="ctl chgbtn" data-chg="wide">breedte</button>
+    <button class="ctl chgbtn" data-chg="red">kleur</button>
+    <button class="ctl chgbtn" data-chg="moved">transform</button>
+    <button class="ctl" id="reset">Opnieuw</button>
+  </div>
+</div>
+
+<script>
+const STEPS = ['parse', 'style', 'layout', 'paint', 'raster', 'composite'];
+const NAMES = { parse: 'Parse', style: 'Style', layout: 'Layout', paint: 'Paint', raster: 'Raster', composite: 'Composite' };
+const OUT = { parse: ['dom', 'cssom'], style: ['computed'], layout: ['layout'], paint: ['display'], raster: ['layers'], composite: ['frame'] };
+const MEM = [
+  ['dom', 'DOM', 'elementen als boom'],
+  ['cssom', 'CSSOM', 'de CSS-regels'],
+  ['computed', 'Computed style', 'waarden per element'],
+  ['layout', 'Layout tree', 'posities en maten'],
+  ['display', 'Display list', 'tekenopdrachten'],
+  ['layers', 'Gerasterde layers', 'pixels per layer, in tegels'],
+  ['frame', 'Frame', 'het beeld op het scherm'],
+];
+const CHANGES = {
+  wide:  { label: 'breedte',   prop: 'width',      off: '96px',  on: '160px',            path: ['style', 'layout', 'paint', 'raster', 'composite'], stale: ['computed', 'layout', 'display', 'layers', 'frame'] },
+  red:   { label: 'kleur',     prop: 'background', off: 'teal',  on: 'tomato',           path: ['style', 'paint', 'raster', 'composite'], stale: ['computed', 'display', 'layers', 'frame'] },
+  moved: { label: 'transform', prop: 'transform',  off: 'none',  on: 'translateX(40px)', path: ['style', 'composite'],                    stale: ['computed', 'frame'] },
+};
+
+const S = {
+  flags: { wide: false, red: false, moved: false },
+  oldFlags: null,      // wat er op het scherm staat tijdens een herberekening
+  mode: 'initial',     // 'initial' of 'rerun'
+  pos: 0,              // initial: 0..5 (aantal afgewerkte stappen); rerun: 0..path.length
+  change: null,        // sleutel uit CHANGES
+  frameNo: 1,
+};
+
+const val = (f, k) => f[k] ? CHANGES[k].on : CHANGES[k].off;
+const btnW = f => f.wide ? 160 : 96;
+const btnBg = f => f.red ? 'tomato' : 'teal';
+const btnTx = f => f.moved ? 40 : 0;
+
+function path() { return S.mode === 'initial' ? STEPS : CHANGES[S.change].path; }
+function curStep() { return S.pos === 0 ? null : path()[S.pos - 1]; }
+function atEnd() { return S.pos === path().length; }
+
+/* ---------- Broncode ---------- */
+function renderSrc() {
+  const f = S.flags, st = curStep(), chg = S.mode === 'rerun' ? S.change : null;
+  const L = [
+    ['<article class="card">', ['parse']],
+    ['  <h3>Bestelling #42</h3>', ['parse', 'paint']],
+    ['  <button>Details</button>', ['parse', 'paint']],
+    ['</article>', ['parse']],
+    ['', []],
+    ['.card {', ['parse']],
+    ['  width: 300px; padding: 16px;', ['parse', 'style', 'layout']],
+    ['  background: white;', ['parse', 'style', 'paint']],
+    ['}', ['parse']],
+    ['h3 {', ['parse']],
+    ['  font-size: 24px; line-height: 32px;', ['parse', 'style', 'layout']],
+    ['  margin: 0 0 8px;', ['parse', 'style', 'layout']],
+    ['}', ['parse']],
+    ['button {', ['parse']],
+    [`  width: ${val(f, 'wide')}; height: 36px;`, ['parse', 'style', 'layout'], 'wide'],
+    [`  background: ${val(f, 'red')};`, ['parse', 'style', 'paint'], 'red'],
+    [`  transform: ${val(f, 'moved')};`, ['parse', 'style', 'composite'], 'moved'],
+    ['  will-change: transform;', ['parse', 'style', 'raster', 'composite']],
+    ['}', ['parse']],
+  ];
+  document.getElementById('src').innerHTML = L.map(([t, steps, key]) => {
+    let cls = '';
+    if (S.mode === 'initial') cls = st && steps.includes(st) ? 'on' : (S.pos === 0 ? 'base' : '');
+    else cls = key === chg ? 'on' : 'base';
+    return `<div class="${cls}">${esc(t) || ' '}</div>`;
+  }).join('');
+}
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/* ---------- Tijdlijn ---------- */
+function renderTimeline() {
+  const p = path();
+  const parts = STEPS.map(s => {
+    let cls = '';
+    if (S.mode === 'initial') {
+      const i = STEPS.indexOf(s) + 1;
+      cls = i < S.pos ? 'done' : i === S.pos ? 'cur' : '';
+    } else {
+      const i = p.indexOf(s) + 1;
+      if (i === 0) cls = 'skip';
+      else cls = i < S.pos ? 'done-re' : i === S.pos ? 'cur-re' : 'todo-re';
+    }
+    const title = cls === 'skip' ? ' (overgeslagen)' : '';
+    return `<span class="pill ${cls}">${NAMES[s]}${title}</span>`;
+  });
+  const tag = S.mode === 'initial'
+    ? `frame ${S.frameNo} · eerste render · ${S.pos}/${STEPS.length}`
+    : `frame ${S.frameNo} · wijziging: ${CHANGES[S.change].label} · ${S.pos}/${p.length}`;
+  document.getElementById('timeline').innerHTML = parts.join('<span class="arrow">→</span>') + `<span class="frame-tag">${tag}</span>`;
+}
+
+/* ---------- Geheugen ---------- */
+function renderMem() {
+  let present = new Set(), fresh = new Set(), stale = new Set();
+  if (S.mode === 'initial') {
+    STEPS.slice(0, S.pos).forEach(s => OUT[s].forEach(k => present.add(k)));
+    const st = curStep(); if (st) OUT[st].forEach(k => fresh.add(k));
+  } else {
+    MEM.forEach(([k]) => present.add(k));
+    const c = CHANGES[S.change];
+    c.stale.forEach(k => stale.add(k));
+    c.path.slice(0, S.pos).forEach(s => OUT[s].forEach(k => stale.delete(k)));
+    const st = curStep(); if (st) OUT[st].filter(k => c.stale.includes(k)).forEach(k => fresh.add(k));
+  }
+  document.getElementById('mem').innerHTML = MEM.map(([k, name, what]) => {
+    const cls = stale.has(k) ? 'stale' : fresh.has(k) ? 'present new' : present.has(k) ? 'present' : 'absent';
+    return `<li class="${cls}"><span class="dot"></span><span class="name">${name}</span><span class="what">${what}</span></li>`;
+  }).join('');
+}
+
+/* ---------- Het kaartje ---------- */
+function cardHTML(f, { noButton = false, onlyButton = false } = {}) {
+  const b = `<div class="btn" style="width:${btnW(f)}px;background:${btnBg(f)};transform:translateX(${btnTx(f)}px)">Details</div>`;
+  if (onlyButton) return `<div style="position:relative;width:300px;height:108px">${b}</div>`;
+  return `<div class="card"><h3>Bestelling #42</h3>${noButton ? '' : b}</div>`;
+}
+
+/* ---------- Middenvlak per stap ---------- */
+function stageFor(step, f, hl) {
+  const c = k => hl === k ? ' chg' : '';
+  const d = i => `style="animation-delay:${i * 0.12}s"`;
+  switch (step) {
+    case 'parse': return `
+      <div class="tree">
+        <div class="node appear" ${d(0)}><span class="tag">article</span><span class="txt">.card</span></div>
+        <div class="node appear" ${d(1)} style="padding-left:24px;animation-delay:.12s">└ <span class="tag">h3</span></div>
+        <div class="node appear" style="padding-left:56px;animation-delay:.24s"><span class="txt">"Bestelling #42"</span></div>
+        <div class="node appear" style="padding-left:24px;animation-delay:.36s">└ <span class="tag">button</span></div>
+        <div class="node appear" style="padding-left:56px;animation-delay:.48s"><span class="txt">"Details"</span></div>
+        <div class="cssom appear" style="animation-delay:.7s">CSSOM: 3 regels (.card, h3, button)</div>
+      </div>`;
+    case 'style': return `
+      <div class="tree">
+        <div class="node"><span class="tag">article</span>
+          <span class="chip appear" ${d(1)}>width: 300px</span><span class="chip appear" ${d(2)}>padding: 16px</span><span class="chip appear" ${d(3)}>background: white</span></div>
+        <div class="node" style="padding-left:24px">└ <span class="tag">h3</span>
+          <span class="chip appear" ${d(4)}>font-size: 24px</span><span class="chip appear" ${d(5)}>line-height: 32px</span><span class="chip appear" ${d(6)}>margin: 0 0 8px</span></div>
+        <div class="node" style="padding-left:24px">└ <span class="tag">button</span>
+          <span class="chip appear${c('wide')}" ${d(7)}>width: ${val(f, 'wide')}</span><span class="chip appear" ${d(8)}>height: 36px</span><span class="chip appear${c('red')}" ${d(9)}>background: ${val(f, 'red')}</span><span class="chip appear${c('moved')}" ${d(10)}>transform: ${val(f, 'moved')}</span></div>
+        <div class="note">Elk element krijgt één definitieve waarde per property: de computed style.</div>
+      </div>`;
+    case 'layout': return `
+      <div>
+        <div class="boxes">
+          <div class="bx outer appear" style="left:0;top:0;width:300px;height:108px"><span>article · x0 y0 · 300×108</span></div>
+          <div class="bx inner appear" style="left:16px;top:16px;width:268px;height:32px;animation-delay:.25s"><span>h3 · x16 y16 · 268×32</span></div>
+          <div class="bx inner appear${hl === 'wide' ? ' chgbox' : ''}" style="left:16px;top:56px;width:${btnW(f)}px;height:36px;animation-delay:.5s"><span class="${hl === 'wide' ? 'chg' : ''}">button · x16 y56 · ${btnW(f)}×36</span></div>
+        </div>
+        <div class="note">Nog geen kleur, geen tekst: alleen maten en posities.${f.moved ? ' De transform telt hier niet mee: layout ziet de knop nog op x16.' : ''}</div>
+      </div>`;
+    case 'paint': {
+      const lines = [
+        ['drawRoundRect(0, 0, 300, 108, r=8)', '#fff', ''],
+        ['drawText("Bestelling #42", 16, 40)', '#222', ''],
+        [`drawRoundRect(16, 56, ${btnW(f)}, 36, r=6)`, btnBg(f), hl === 'wide' || hl === 'red' ? ' chg' : ''],
+        ['drawText("Details", …)', '#fff', ''],
+      ];
+      return `
+      <div>
+        <div class="dl">${lines.map(([t, col, x], i) =>
+          `<div class="appear" ${d(i * 2)}><span class="n">${i + 1}</span><span class="sw" style="background:${col}"></span><span class="chip${x}">${t}</span></div>`).join('')}
+        </div>
+        <div class="note">Een lijst opdrachten in tekenvolgorde. Kijk naar het scherm: daar staat nog niets.</div>
+      </div>`;
+    }
+    case 'raster': {
+      const tiles = (cols, rows, base, animate) => {
+        let h = '';
+        for (let i = 0; i < cols * rows; i++) h += `<i style="${animate ? `animation-delay:${base + i * 0.18}s` : 'animation:none;background:transparent'}"></i>`;
+        return `<div class="tiles" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${h}</div>`;
+      };
+      const redo1 = !hl; // bij een wijziging blijft layer 1 zoals hij was
+      return `
+      <div>
+        <div class="raster">
+          <div><div class="rlabel" style="color:var(--accent)">layer 1 · kaartje${redo1 ? '' : ' · hergebruikt'}</div>
+            <div class="tilebox">${cardHTML(f, { noButton: true })}${tiles(4, 2, 0.1, redo1)}</div></div>
+          <div><div class="rlabel" style="color:var(--warn)">layer 2 · knop</div>
+            <div class="tilebox"><div class="btn" style="position:relative;left:0;top:0;width:${btnW(f)}px;background:${btnBg(f)}">Details</div>${tiles(2, 1, redo1 ? 1.6 : 0.1, true)}</div></div>
+        </div>
+        <div class="note">De opdrachten uit Paint worden pixels, per layer en per tegel. ${hl ? 'Het scherm toont nog het oude frame.' : 'De layers liggen nog los: het scherm is nog leeg.'}</div>
+      </div>`;
+    }
+    case 'composite': return `
+      <div class="scene">
+        <div class="stack" id="stack">
+          <div class="ly ly1">${cardHTML(f, { noButton: true })}<span class="lytag" style="background:var(--accent);left:-6px;top:-30px">layer 1 · kaartje</span></div>
+          <div class="ly ly2">${cardHTML(f, { onlyButton: true })}<span class="lytag" style="background:var(--warn);left:${btnW(f) + btnTx(f) + 30}px;top:64px">layer 2 · knop (will-change)</span></div>
+        </div>
+      </div>`;
+  }
+}
+
+function renderStage() {
+  const st = curStep(), el = document.getElementById('stage'), lbl = document.getElementById('stageLabel');
+  if (S.mode === 'initial' && S.pos === 0) {
+    lbl.textContent = 'Nog niets';
+    el.innerHTML = `<div class="stage-inner"><div class="empty">De browser heeft alleen tekst ontvangen.<br>Druk op <b>Volgende</b>.</div></div>`;
+    return;
+  }
+  if (S.mode === 'rerun' && S.pos === 0) {
+    const c = CHANGES[S.change];
+    lbl.textContent = 'Wijziging';
+    el.innerHTML = `<div class="stage-inner"><div style="text-align:center">
+      <div class="dl"><span class="chip chg" style="font-size:16px;padding:6px 12px">button.style.${c.prop} = '${val(S.flags, S.change)}'</span></div>
+      <div class="note" style="font-size:15px">Moet opnieuw: <b>${c.path.map(s => NAMES[s]).join(' → ')}</b><br>
+      Hergebruikt: ${STEPS.filter(s => !c.path.includes(s)).map(s => NAMES[s]).join(', ')}</div></div></div>`;
+    return;
+  }
+  lbl.textContent = (S.mode === 'rerun' ? 'Opnieuw: ' : 'Stap: ') + NAMES[st];
+  el.innerHTML = `<div class="stage-inner">${stageFor(st, S.flags, S.mode === 'rerun' ? S.change : null)}</div>`;
+  if (st === 'composite') {
+    // eerst de losse layers tonen, dan samenklappen tot één beeld
+    const at = { mode: S.mode, pos: S.pos, frameNo: S.frameNo };
+    setTimeout(() => {
+      if (S.mode !== at.mode || S.pos !== at.pos || S.frameNo !== at.frameNo) return; // intussen verder of terug geklikt
+      const s = document.getElementById('stack'); if (s) s.classList.add('flat');
+      renderScreen(true);
+    }, 1500);
+  }
+}
+
+/* ---------- Scherm ---------- */
+function renderScreen(compositeDone = false) {
+  const el = document.getElementById('screen');
+  const st = curStep();
+  if (S.mode === 'initial') {
+    if (atEnd() && (compositeDone || st !== 'composite')) {
+      el.innerHTML = `<div class="scale">${cardHTML(S.flags)}</div>`;
+    } else if (atEnd()) {
+      el.innerHTML = `<div class="blank">Layers worden samengevoegd...</div>`;
+    } else {
+      el.innerHTML = `<div class="blank">Leeg. Er is nog geen frame.</div>`;
+    }
+    return;
+  }
+  if (atEnd() && compositeDone) {
+    el.innerHTML = `<div class="scale">${cardHTML(S.flags)}</div>`;
+  } else {
+    el.innerHTML = `<span class="old">oud frame</span><div class="scale">${cardHTML(S.oldFlags)}</div>`;
+  }
+}
+
+/* ---------- Uitleg ---------- */
+function explain() {
+  const st = curStep();
+  if (S.mode === 'initial') {
+    return [
+      'De browser heeft HTML en CSS ontvangen: <b>alleen tekst</b>. Er staat nog niets op het scherm.',
+      '<b>Parse</b> leest de tekst en maakt er objecten van: de <b>DOM</b> (de elementen als boom) en de <b>CSSOM</b> (de regels). Dit is de boom die je vanuit JavaScript aanspreekt.',
+      '<b>Style</b> zoekt voor elk element welke CSS-regels gelden en rekent de definitieve waarden uit: de <b>computed style</b>.',
+      '<b>Layout</b> meet elke box uit: waar staat ze en hoe groot is ze? Boxes hangen van elkaar af: de knop staat onder de titel. Wordt de titel langer, dan schuift de knop mee.',
+      '<b>Paint</b> schrijft tekenopdrachten op, in de juiste volgorde. Let op: het scherm is nog <b>leeg</b>. Paint maakt een lijst, geen pixels.',
+      '<b>Raster</b> voert de opdrachten uit: elke pixel krijgt een kleur. Dat gebeurt <b>per layer</b> en in <b>tegels</b>, meestal op de GPU. De knop heeft een eigen layer door <code>will-change</code>. Het scherm is nog altijd leeg: de layers liggen nog los.',
+      '<b>Composite</b> legt de gerasterde layers op elkaar tot één beeld: het <b>frame</b>. Pas nu staat er iets op het scherm.',
+    ][S.pos];
+  }
+  const c = CHANGES[S.change];
+  if (S.pos === 0) return `JavaScript wijzigt de <b>${c.label}</b> van de knop. De browser markeert wat <b>ongeldig</b> is. Tot alles opnieuw berekend is, blijft het <b>oude frame</b> op het scherm.`;
+  const T = {
+    style: 'Style opnieuw: de computed style van de knop verandert. De DOM en de CSSOM worden hergebruikt.',
+    layout: 'Layout opnieuw: de knop is breder. Hier verschuift niets anders, maar op een echte pagina kan één breedte de posities van alles erna veranderen. Daarom is layout duur.',
+    paint: S.change === 'red'
+      ? 'Paint opnieuw, maar <b>layout overgeslagen</b>: een kleur verandert geen maten. Alleen de tekenopdracht van de knop is nieuw.'
+      : 'Paint opnieuw: de knop heeft andere maten, dus een nieuwe tekenopdracht.',
+    raster: 'Raster opnieuw, maar <b>alleen layer 2</b> (de knop). Layer 1 is niet veranderd en wordt hergebruikt. Dat is het voordeel van een eigen layer.',
+    composite: S.change === 'moved'
+      ? 'Geen layout, geen paint, geen raster. De compositor <b>schuift layer 2 op</b> en maakt een nieuw frame. Dat kan zelfs terwijl JavaScript bezig is: daarom zijn <code>transform</code>-animaties vlot.'
+      : 'De compositor legt de layers opnieuw op elkaar: een nieuw frame.',
+  };
+  return T[st];
+}
+
+/* ---------- Alles tekenen ---------- */
+function render() {
+  renderTimeline(); renderSrc(); renderMem(); renderStage(); renderScreen();
+  document.getElementById('explain').innerHTML = explain();
+  document.getElementById('prev').disabled = S.mode === 'initial' && S.pos === 0;
+  document.getElementById('next').disabled = atEnd();
+  const canChange = atEnd();
+  document.querySelectorAll('[data-chg]').forEach(b => {
+    b.disabled = !canChange;
+    b.textContent = `${CHANGES[b.dataset.chg].label}${S.flags[b.dataset.chg] ? ' terug' : ''}`;
+  });
+  document.getElementById('chgHint').textContent = canChange ? 'Wijzig de knop:' : 'Wijzigen kan na de laatste stap';
+}
+
+function next() { if (!atEnd()) { S.pos++; render(); } }
+function prev() {
+  if (S.pos > 0) { S.pos--; render(); return; }
+  if (S.mode === 'rerun') {
+    // terug naar vóór de wijziging: het vorige frame
+    S.flags = { ...S.oldFlags }; S.mode = 'initial'; S.change = null; S.pos = STEPS.length; S.frameNo--; render();
+  }
+}
+function change(key) {
+  S.oldFlags = { ...S.flags };
+  S.flags = { ...S.flags, [key]: !S.flags[key] };
+  S.mode = 'rerun'; S.change = key; S.pos = 0; S.frameNo++;
+  render();
+}
+function reset() { Object.assign(S, { flags: { wide: false, red: false, moved: false }, oldFlags: null, mode: 'initial', pos: 0, change: null, frameNo: 1 }); render(); }
+
+document.getElementById('next').onclick = next;
+document.getElementById('prev').onclick = prev;
+document.getElementById('reset').onclick = reset;
+document.querySelectorAll('[data-chg]').forEach(b => b.onclick = () => change(b.dataset.chg));
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') next();
+  if (e.key === 'ArrowLeft') prev();
+});
+render();
+</script>
+</body>
+</html>
