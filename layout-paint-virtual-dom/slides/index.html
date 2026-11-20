@@ -47,38 +47,6 @@
     .pipe.big { font-size: 0.9em; gap: 12px; }
     .pipe.big span { padding: 12px 22px; }
 
-    /* Het kaartje (lopend voorbeeld) */
-    .stage { position: relative; display: inline-block; background: #f1f5f9; padding: 24px; border-radius: 12px; }
-    .card {
-      box-sizing: border-box; width: 300px; padding: 16px; background: #fff;
-      border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.15); text-align: left; font-family: system-ui, sans-serif;
-    }
-    .card h3 { font: 600 24px/32px system-ui, sans-serif; margin: 0 0 8px; color: #222; text-transform: none; letter-spacing: 0; }
-    .card button {
-      display: block; width: 96px; height: 36px; border: 0; border-radius: 6px;
-      background: var(--accent); color: #fff; font: 500 16px system-ui, sans-serif;
-    }
-    /* Layout-overlay: de boxes met hun coordinaten */
-    .boxes .card h3, .boxes .card button { outline: 2px dashed var(--warn); outline-offset: 0; }
-    .boxes .card { outline: 2px dashed var(--accent); }
-    .tag { position: absolute; font: 600 13px ui-monospace, monospace; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
-    .tag.c { background: var(--accent); color: #fff; }
-    .tag.r { background: var(--warn); color: #fff; }
-
-    /* DOM-boom */
-    .tree { font: 0.75em/1.6 ui-monospace, monospace; text-align: left; }
-    .tree div { padding-left: 1.4em; }
-    .tree b { color: var(--accent); }
-
-    /* Layers */
-    .layers { position: relative; height: 300px; width: 420px; margin: 0 auto; }
-    .layer {
-      position: absolute; width: 300px; height: 150px; border-radius: 10px; border: 2px solid var(--accent);
-      background: rgba(204, 251, 241, .85); font: 600 18px system-ui, sans-serif; padding: 10px 14px; text-align: left;
-      box-sizing: border-box;
-    }
-    .layer.l2 { border-color: var(--warn); background: rgba(254, 226, 226, .9); }
-
     /* Demo's */
     .lanes { display: grid; grid-template-columns: 130px 620px; gap: 14px 16px; align-items: center; justify-content: center; margin: 20px 0; }
     .lanes .lbl { text-align: right; font: 600 22px ui-monospace, monospace; color: var(--muted); }
@@ -102,6 +70,11 @@
     #box.red   { background: tomato; }
     #box.moved { transform: translateX(100px); }
 
+    #box2 { width: 100px; height: 100px; background: teal; margin: 20px 0 30px; border-radius: 8px;
+            display: grid; place-items: center; color: #fff; font: 600 28px system-ui, sans-serif; }
+    #box2:hover { outline: 4px solid var(--warn); }
+    #box2.moved { transform: translateX(100px); }
+
     .take li { margin: 0.5em 0; }
     .placeholder { border: 2px dashed var(--line); border-radius: 12px; padding: 30px; color: var(--muted); }
   </style>
@@ -117,52 +90,13 @@
     <p class="muted">Hoe worden boxes pixels, en waarom vermijden frameworks het aanraken van de DOM?</p>
   </section>
 
-  <!-- ============ HOOK ============ -->
-  <section>
-    <h2>Twee bolletjes, dezelfde animatie</h2>
-    <div class="lanes">
-      <span class="lbl">left</span><div class="lane"><div class="ball w"></div></div>
-      <span class="lbl">transform</span><div class="lane"><div class="ball t"></div></div>
-    </div>
-    <p>
-      <button class="demo-btn danger" id="block">Blokkeer JavaScript 2 seconden</button>
-    </p>
-    <p id="status"></p>
-    <aside class="notes">
-      Beide bolletjes doen hetzelfde: heen en weer schuiven met een CSS-animatie. Het enige verschil is de property: left of transform.
-      Klik op de knop: die draait 2 seconden een while-lus op de main thread.
-      Het rode bolletje bevriest, het groene blijft lopen. Waarom? Daar gaat deze sessie over.
-    </aside>
-  </section>
-
-  <!-- ============ AGENDA ============ -->
-  <section>
-    <h2>Waar we naartoe gaan</h2>
-    <ol>
-      <li><strong>De rendering pipeline</strong>: van HTML naar pixels</li>
-      <li class="muted">Layout: box model, viewport, reflow</li>
-      <li class="muted">Paint en compositing: wat triggert een repaint</li>
-      <li class="muted">Waarom DOM-updates duur zijn, en wat een virtual DOM doet</li>
-      <li class="muted">Hydration: server-HTML interactief maken</li>
-    </ol>
-    <p class="small muted">Waarom het ertoe doet: haperend scrollen, verspringende layouts, trage UI's.</p>
-    <aside class="notes">
-      Deel 1 is de basis: alles wat volgt is een zoom op een stap van de pipeline.
-    </aside>
-  </section>
-
   <!-- ============ DEEL 1: PIPELINE ============ -->
-  <section data-background-color="#0f766e">
-    <p class="kicker" style="color:#ccfbf1">Deel 1</p>
-    <h1 style="color:#fff">De rendering pipeline</h1>
-    <p style="color:#ccfbf1">Wat gebeurt er tussen "DOM gewijzigd" en "pixel op scherm"?</p>
-  </section>
-
   <section>
+    <p class="kicker">Deel 1</p>
     <h2>Wat is de rendering pipeline?</h2>
     <p>De vaste stappen die de browser doorloopt om HTML en CSS om te zetten in pixels.</p>
     <div class="pipe big">
-      <span class="on">Parse</span><i>→</i><span class="on">Style</span><i>→</i><span class="on">Layout</span><i>→</i><span class="on">Paint</span><i>→</i><span class="on">Composite</span>
+      <span class="on">Parse</span><i>→</i><span class="on">Style</span><i>→</i><span class="on">Layout</span><i>→</i><span class="on">Paint</span><i>→</i><span class="on">Raster</span><i>→</i><span class="on">Composite</span>
     </div>
     <p class="fragment">Niet één keer, maar <strong>bij elke wijziging opnieuw</strong>.</p>
     <p class="fragment">Een wijziging stapt ergens in, en <strong>alles erna moet opnieuw</strong>.</p>
@@ -172,230 +106,13 @@
   </section>
 
   <section>
-    <h2>Ons voorbeeld</h2>
-    <div class="cols">
-      <div>
-        <pre><code class="language-html" data-trim>
-&lt;article class="card"&gt;
-  &lt;h3&gt;Bestelling #42&lt;/h3&gt;
-  &lt;button&gt;Details&lt;/button&gt;
-&lt;/article&gt;
-        </code></pre>
-        <pre><code class="language-css" data-trim>
-.card   { width: 300px; padding: 16px;
-          box-sizing: border-box; }
-h3      { font-size: 24px; line-height: 32px;
-          margin: 0 0 8px; }
-button  { width: 96px; height: 36px; }
-        </code></pre>
-      </div>
-      <div style="text-align:center">
-        <div class="stage">
-          <article class="card"><h3>Bestelling #42</h3><button>Details</button></article>
-        </div>
-      </div>
-    </div>
+    <h2>De pipeline in slow motion</h2>
+    <p>We volgen één kaartje door elke stap, en kijken telkens wat er na die stap in de browser bestaat.</p>
+    <p><a class="demo-btn" href="../slow-motion/index.html" target="_blank" rel="noopener">Open de app →</a></p>
     <aside class="notes">
-      We volgen dit ene kaartje door elke stap, en kijken telkens wat er concreet uitkomt.
-    </aside>
-  </section>
-
-  <!-- Parse -->
-  <section>
-    <div class="pipe"><span class="on">Parse</span><i>→</i><span>Style</span><i>→</i><span>Layout</span><i>→</i><span>Paint</span><i>→</i><span>Composite</span></div>
-    <h2>Parse: tekst wordt een boom</h2>
-    <div class="cols">
-      <div class="tree">
-        <b>article</b>.card
-        <div><b>h3</b><div>"Bestelling #42"</div></div>
-        <div><b>button</b><div>"Details"</div></div>
-      </div>
-      <div>
-        <ul>
-          <li>HTML wordt de <strong>DOM</strong></li>
-          <li>CSS wordt de <strong>CSSOM</strong></li>
-          <li class="muted small">Gebeurt bij het laden, en bij <code>innerHTML</code></li>
-        </ul>
-      </div>
-    </div>
-    <aside class="notes">
-      De browser leest tekst en maakt er objecten van. Dat is de DOM die je vanuit JavaScript aanspreekt.
-      Een appendChild of classList.add wijzigt die boom rechtstreeks, zonder opnieuw te parsen.
-    </aside>
-  </section>
-
-  <!-- Style -->
-  <section>
-    <div class="pipe"><span>Parse</span><i>→</i><span class="on">Style</span><i>→</i><span>Layout</span><i>→</i><span>Paint</span><i>→</i><span>Composite</span></div>
-    <h2>Style: welke regels gelden?</h2>
-    <div class="cols">
-      <div>
-        <pre><code class="language-css" data-trim>
-/* browser-default */
-h3 { font-size: 1.17em; margin: 1em 0; }
-/* onze CSS */
-h3 { font-size: 24px; line-height: 32px;
-     margin: 0 0 8px; }
-        </code></pre>
-        <p style="text-align:center">↓</p>
-        <pre><code class="language-yaml" data-trim>
-h3 (computed):
-  font-size:   24px
-  line-height: 32px
-  margin:      0 0 8px
-  color:       rgb(34, 34, 34)
-  display:     block
-        </code></pre>
-      </div>
-      <div>
-        <ul>
-          <li>Selectors matchen, cascade toepassen</li>
-          <li>Resultaat: één <strong>computed style</strong> per element</li>
-          <li class="muted small">DevTools: <em>Recalculate Style</em></li>
-        </ul>
-      </div>
-    </div>
-    <aside class="notes">
-      Voor elk element beslist de browser welke waarde wint. Een class toevoegen of verwijderen start hier.
-      Te zien in de Performance-tab als "Recalculate Style", en in het Computed-paneel van Elements.
-    </aside>
-  </section>
-
-  <!-- Layout -->
-  <section>
-    <div class="pipe"><span>Parse</span><i>→</i><span>Style</span><i>→</i><span class="on">Layout</span><i>→</i><span>Paint</span><i>→</i><span>Composite</span></div>
-    <h2>Layout: waar staat elke box?</h2>
-    <div class="cols">
-      <div style="text-align:center">
-        <div class="stage boxes" style="padding-right: 290px;">
-          <article class="card"><h3>Bestelling #42</h3><button>Details</button></article>
-          <span class="tag c" style="left: 340px; top: 20px;">article  x0 y0  300×108</span>
-          <span class="tag r" style="left: 340px; top: 46px;">h3  x16 y16  268×32</span>
-          <span class="tag r" style="left: 340px; top: 88px;">button  x16 y56  96×36</span>
-        </div>
-      </div>
-      <div>
-        <ul>
-          <li>Breedte, hoogte en positie van elke box</li>
-          <li>Hangt van elkaar af: de <code>button</code> staat onder de <code>h3</code></li>
-          <li class="fragment">Wordt de titel 2 regels? Dan schuift <strong>alles eronder</strong> op</li>
-          <li class="muted small">DevTools: <em>Layout</em></li>
-        </ul>
-      </div>
-    </div>
-    <aside class="notes">
-      Rekensom: 16 padding + 32 titel + 8 marge = 56, daar begint de knop. 56 + 36 + 16 padding = 108 hoogte.
-      Het punt: boxes hangen van elkaar af. Eén maat wijzigen kan de posities van veel andere boxes veranderen.
-      Daarom is layout de dure stap.
-    </aside>
-  </section>
-
-  <!-- Paint -->
-  <section>
-    <div class="pipe"><span>Parse</span><i>→</i><span>Style</span><i>→</i><span>Layout</span><i>→</i><span class="on">Paint</span><i>→</i><span>Composite</span></div>
-    <h2>Paint: een lijst tekenopdrachten</h2>
-    <div class="cols">
-      <div>
-        <pre><code class="language-js" data-trim>
-// vereenvoudigd
-drawRoundRect(0, 0, 300, 108, r=8, white)
-drawText("Bestelling #42", 16, 40, 24px)
-drawRoundRect(16, 56, 96, 36, r=6, teal)
-drawText("Details", 34, 79, 16px, white)
-        </code></pre>
-      </div>
-      <div>
-        <ul>
-          <li>In welke volgorde teken je wat?</li>
-          <li><strong>Nog geen pixels</strong>: een <em>display list</em></li>
-          <li class="fragment">Pixels komen pas bij <strong>raster</strong>, meestal op de GPU</li>
-          <li class="muted small">DevTools: <em>Paint</em>, en Rendering → Paint flashing</li>
-        </ul>
-      </div>
-    </div>
-    <aside class="notes">
-      Veel bronnen zeggen "paint = pixels tekenen". In Chromium maakt paint een lijst opdrachten; raster zet die later om in pixels, in tegels, meestal op de GPU.
-      web.dev telt raster bij paint, Chromium niet. Vandaar dat bronnen elkaar soms lijken tegen te spreken.
-    </aside>
-  </section>
-
-  <!-- Composite -->
-  <section>
-    <div class="pipe"><span>Parse</span><i>→</i><span>Style</span><i>→</i><span>Layout</span><i>→</i><span>Paint</span><i>→</i><span class="on">Composite</span></div>
-    <h2>Composite: layers op elkaar leggen</h2>
-    <div class="cols">
-      <div class="layers">
-        <div class="layer" style="left: 0; top: 0;">Layer 1: pagina + kaartje</div>
-        <div class="layer l2" style="left: 110px; top: 120px;">Layer 2: de knop<br><span style="font: 14px ui-monospace, monospace">will-change: transform</span></div>
-      </div>
-      <div>
-        <ul>
-          <li>De pagina is opgedeeld in <strong>layers</strong></li>
-          <li>De compositor legt ze op elkaar tot één frame</li>
-          <li class="fragment">Een layer <strong>verschuiven</strong> of <strong>doorzichtig maken</strong> kan zonder opnieuw layout of paint</li>
-          <li class="fragment">En de compositor heeft een <strong>eigen thread</strong>: hij wacht niet op JavaScript</li>
-          <li class="muted small">DevTools: Layers-paneel, Rendering → Layer borders</li>
-        </ul>
-      </div>
-    </div>
-    <aside class="notes">
-      Denk aan transparante vellen die je op elkaar legt. Heeft de knop een eigen layer, dan kan je hem verschuiven zonder de rest opnieuw te tekenen.
-      De compositor draait niet op de main thread. Daarom bleef het groene bolletje uit de intro lopen.
-    </aside>
-  </section>
-
-  <!-- Drie paden -->
-  <section>
-    <h2>Waar stapt een wijziging in?</h2>
-    <table>
-      <thead><tr><th>Je wijzigt</th><th>Pipeline</th><th>Kost</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><code>width</code>, <code>top</code>, <code>left</code>, <code>font-size</code></td>
-          <td><div class="pipe" style="margin:0;justify-content:flex-start"><span class="hit">Style</span><span class="hit">Layout</span><span class="hit">Paint</span><span class="hit">Composite</span></div></td>
-          <td>Hoog</td>
-        </tr>
-        <tr>
-          <td><code>color</code>, <code>background</code>, <code>box-shadow</code></td>
-          <td><div class="pipe" style="margin:0;justify-content:flex-start"><span class="hit">Style</span><span>Layout</span><span class="hit">Paint</span><span class="hit">Composite</span></div></td>
-          <td>Middel</td>
-        </tr>
-        <tr>
-          <td><code>transform</code>, <code>opacity</code></td>
-          <td><div class="pipe" style="margin:0;justify-content:flex-start"><span class="hit">Style</span><span>Layout</span><span>Paint</span><span class="hit">Composite</span></div></td>
-          <td>Laag</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="fragment small">Terug naar de bolletjes: <code>left</code> heeft de main thread nodig, <code>transform</code> niet.</p>
-    <aside class="notes">
-      Dit is de kern van deel 1. Hoe vroeger een wijziging instapt, hoe meer stappen opnieuw moeten.
-      Nuance: of een transform echt alleen composite is, hangt af van of het element al een eigen layer heeft. Dat bekijken we in deel 3.
-    </aside>
-  </section>
-
-  <!-- Live demo -->
-  <section>
-    <h2>Zelf zien</h2>
-    <div class="cols wide-left">
-      <div>
-        <div id="box"></div>
-        <button class="demo-btn" onclick="document.getElementById('box').classList.toggle('wide')">width</button>
-        <button class="demo-btn" onclick="document.getElementById('box').classList.toggle('red')">kleur</button>
-        <button class="demo-btn" onclick="document.getElementById('box').classList.toggle('moved')">transform</button>
-      </div>
-      <div class="small">
-        <ol>
-          <li>DevTools → Rendering → <strong>Paint flashing</strong> aan</li>
-          <li>Klik elke knop: wat flitst groen?</li>
-          <li>Performance → opnemen → per knop kijken naar Layout en Paint</li>
-        </ol>
-      </div>
-    </div>
-    <aside class="notes">
-      Verwachting: width geeft layout en paint, kleur alleen paint, transform geen van beide.
-      De box heeft will-change: transform, zodat hij vooraf een eigen layer heeft.
-      Nog te controleren in de huidige Chrome-versie voor we dit live tonen.
+      Open de app in een nieuw tabblad en doorloop Parse, Style, Layout, Paint, Raster en Composite.
+      Benadruk bij Paint: dat maakt nog geen pixels, maar een display list. Raster maakt er pixels van.
+      Benadruk bij Composite: de compositor heeft een eigen thread. Daarom blijven transform-animaties vlot, ook als JavaScript bezig is.
     </aside>
   </section>
 
@@ -403,36 +120,11 @@ drawText("Details", 34, 79, 16px, white)
   <section>
     <h2>Wat neem je mee uit deel 1</h2>
     <ul class="take">
-      <li>Pixels komen uit een vaste keten: <strong>Style → Layout → Paint → Composite</strong></li>
+      <li>Pixels komen uit een vaste keten: <strong>Style → Layout → Paint → Raster → Composite</strong></li>
       <li>Een wijziging stapt ergens in, <strong>alles erna moet opnieuw</strong></li>
       <li>Animeer <code>transform</code> en <code>opacity</code>, niet <code>width</code>, <code>top</code> of <code>left</code></li>
       <li>JavaScript, style, layout en paint delen <strong>één main thread</strong>; de compositor niet</li>
     </ul>
-  </section>
-
-  <!-- ============ VOLGENDE DELEN (nog uit te werken) ============ -->
-  <section>
-    <p class="kicker">Deel 2</p>
-    <h2>Layout: box model, viewport, reflow</h2>
-    <p class="placeholder">Wordt nog uitgewerkt.<br>Waarom verspringt de layout als de adresbalk op mobiel inklapt? Wat forceert een reflow?</p>
-  </section>
-
-  <section>
-    <p class="kicker">Deel 3</p>
-    <h2>Paint en compositing</h2>
-    <p class="placeholder">Wordt nog uitgewerkt.<br>Wat triggert een repaint? Wanneer krijgt een element een eigen layer, en wat kost dat?</p>
-  </section>
-
-  <section>
-    <p class="kicker">Deel 4</p>
-    <h2>DOM-updates en de virtual DOM</h2>
-    <p class="placeholder">Wordt nog uitgewerkt.<br>Is de DOM echt traag, of het werk dat erop volgt? Hoe bundelt React writes?</p>
-  </section>
-
-  <section>
-    <p class="kicker">Deel 5</p>
-    <h2>Hydration</h2>
-    <p class="placeholder">Wordt nog uitgewerkt.<br>Wat kost het om server-HTML interactief te maken?</p>
   </section>
 
 </div>
@@ -450,17 +142,6 @@ drawText("Details", 34, 79, 16px, white)
     plugins: [RevealNotes, RevealHighlight],
   });
 
-  // Hook-demo: houd de main thread 2 seconden bezig
-  document.getElementById('block').addEventListener('click', () => {
-    const status = document.getElementById('status');
-    status.textContent = 'Main thread bezet...';
-    // eerst de statustekst laten tekenen, dan pas blokkeren
-    requestAnimationFrame(() => setTimeout(() => {
-      const end = performance.now() + 2000;
-      while (performance.now() < end) { /* bezig */ }
-      status.textContent = 'Klaar. Welk bolletje bleef bewegen?';
-    }, 0));
-  });
 </script>
 </body>
 </html>

@@ -53,7 +53,7 @@ Naast de presentatie staan hier de notities bij ons onderzoek. Elk onderwerp hee
 In die map staan ook twee losse HTML-pagina's (open ze rechtstreeks in de browser, ze zitten niet in de Vite-build):
 
 - [`slow-motion/`](layout-paint-virtual-dom/slow-motion/): de rendering pipeline stap per stap, met wat er na elke stap in de browser bestaat.
-- [`slides/`](layout-paint-virtual-dom/slides/): een eerste reveal.js-versie van het pipeline-deel.
+- [`slides/`](layout-paint-virtual-dom/slides/): korte reveal.js-slides voor het pipeline-deel: intro, link naar de slow-motion-app en wat je moet onthouden.
 
 ## Bronnen
 
